@@ -92,15 +92,26 @@ class ClientThread(threading.Thread):
             stats.append((tokens[0], tokens[1]))
         else:
             raise Exception('unterminated message!!!')
-
         dbmanager.write_stats(self.client_ip, stats, time_stamp)
+
     def _handel_put_peers(self, message):
+        print(message)
         time_stamp = message.readline().strip()
         peers = []
+        for line in message:
+            print(line)
+            if line == '<< end >>\n':
+                break
+            tokens = line.strip().split('=')
+            peers.append((tokens[0], tokens[1]))
+        else:
+            raise Exception('unterminated message!!!')
+        dbmanager.write_stats(self.client_ip, peers, time_stamp)
 
 def _get_channel(freq):
     assert freq < 3
     return int((freq - 2.412) / 0.005 + 1)
+
 
 listening_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print('Socket created')
