@@ -5,15 +5,16 @@ import urllib.request
 import urllib.response
 
 # todo: check dbmanager thread safety
-DB_NAME = 'testtest'
-DB_SERVER_URL = 'http://213.233.168.27:8086'
+DB_NAME = 'test'
+DB_SERVER_URL = 'http://192.168.200.144:8086'
 CHANNEL_TAG_KEY = 'channel'
 MAC_TAG_KEY = 'mac'
 ESSID_TAG_KEY = 'essid'
 INFO_FILE_PATH = 'info.txt'
+PEERS_FILE_PATH = 'peers.txt'
+RRM_FILE_PATH = 'rrm.txt'
 
 info2ip_map = {}
-
 
 class ApInfo:
     def __init__(self, mac, essid, channel):
@@ -54,6 +55,20 @@ def write_info(owner_ip, ng_interface, wifi_interface, ap_info):
         file.write(str.format('{}\t{}\t{}\t{}\n', owner_ip, ng_interface, wifi_interface, ap_info))
 
 
+def write_peers(peers):
+    open(PEERS_FILE_PATH, 'w').close()
+    for peer in peers:
+        with open(PEERS_FILE_PATH, 'a') as file:
+            file.write(str.format('{}\t{}\t{}\t{}\n', peer[0], peer[1], peer[2], peer[3]))
+
+
+def pre_rrm(ip, power, channel, peers):
+    write_peers(peers)
+    open(RRM_FILE_PATH, 'w').close()
+    with open(RRM_FILE_PATH, 'a') as file:
+        file.write(str.format('{}\t{}\t{}', ip, power, channel))
+
+
 def write_scan_results(owner_ip, data, time_stamp):
     data_influx = ''
     for (info, signal) in data:
@@ -86,7 +101,7 @@ def _write_to_db(data, db_name):
 def _exec_query(q, db_name):
     http_query = urllib.parse.urlencode({'db': db_name, 'q': q})
     print(http_query)
-    with urllib.request.urlopen(DB_SERVER_URL + '/query?' + http_query) as response:
+    with urllib.request.urlopen(DB_SERVER_URL + '/que=APry?' + http_query) as response:
         return json.loads(response.read().decode('utf-8'))
 
 
@@ -103,3 +118,11 @@ def read_neighbours(ap_info, duration, strength_threshold):
         series = {}
     return [(ApInfo(s['tags']['mac'], s['tags']['essid'], s['tags']['channel']), s['values'][0][1]) for s in series
             if s['values'][0][1] > strength_threshold]
+
+def read_error_rate(ap_info , duration):
+    influx_query1 = str.format('SELECT "tx_erros" FROM "stats" '
+                               'WHERE "time" = now() AND "ap" = {}', get_measure(ap_info))
+    print(influx_query1)
+    influx_query2 = str.format('SELECT "tx_erros" FROM "stats" '
+                               'WHERE "time" = now() - {} AND "ap" = {}', duration, get_measure(ap_info))
+    print(influx_query2)

@@ -5,7 +5,7 @@ import sys
 from datetime import datetime
 from subprocess import CalledProcessError
 
-COLLECTOR_IP = socket.gethostbyname('213.233.168.11')
+COLLECTOR_IP = socket.gethostbyname('192.168.130.123')
 COLLECTOR_PORT = '4444'
 TIME_INTERVAL = '15'
 
@@ -20,7 +20,7 @@ class RemoteHost:
             print('Error!')
         return result
 
-    def __init__(self, host_name, user_name='wifiadmin', password='wifiadmin9512'):
+    def __init__(self, host_name, user_name='WS', password='inFo@WS'):
         self.host_name = host_name
         self.user_name = user_name
         self.password = password
@@ -51,11 +51,6 @@ class RemoteHost:
     def install_script(self, script, *args):
         self.run_cmd('nohup /bin/sh {} {} &'.format(script, ' '.join(args)))
 
-    def change_txpowere(self, interface, txpower):
-        self.run_cmd('iwconfig {} txpower {}'.format(interface, txpower))
-
-    def change_channel(self, interface, channel):
-        self.run_cmd('iwconfig {} channel {}'.format(interface, channel))
 
 ip_to_rhost_map = {}
 with open('ip_list.txt', 'r+') as ips_file:
@@ -89,12 +84,44 @@ if '-stats' in sys.argv:
         for line in info_file:
             tokens = line.split()
             if tokens[0] in ip_to_rhost_map.keys():
-                ip_to_rhost_map[tokens[0]].install_script('read_stats.sh',
-                                                          COLLECTOR_IP, COLLECTOR_PORT, TIME_INTERVAL, tokens[2], tokens[1])
+                ip_to_rhost_map[tokens[0]].install_script('read_stats.sh', COLLECTOR_IP, COLLECTOR_PORT, TIME_INTERVAL,
+                                                          tokens[2], tokens[1])
 if '-scan' in sys.argv:
     with open('info.txt', 'r') as info_file:
         for line in info_file:
             tokens = line.split()
-            if tokens[0] in ip_to_rhost_map.keys():
-                ip_to_rhost_map[tokens[0]].install_script('do_scan.sh',
-                                                          COLLECTOR_IP, COLLECTOR_PORT, TIME_INTERVAL, tokens[1])
+            for host in ip_to_rhost_map.values():
+                if tokens[0] == host.host_name:
+                    host.install_script('do_scan.sh', COLLECTOR_IP, COLLECTOR_PORT, TIME_INTERVAL, tokens[1])
+if '-peers' in sys.argv:
+    with open('info.txt', 'r') as info_file:
+        for line in info_file:
+            tokens = line.split()
+            for host in ip_to_rhost_map.values():
+                if tokens[0] == host.host_name:
+                    host.run_cmd('/bin/sh find_peers.sh {} {} {}'.format(COLLECTOR_IP, COLLECTOR_PORT, tokens[1]))
+if '-rrm' in sys.argv:
+    peers = []
+    with open('rrm.txt', 'r') as rrm_file:
+        aptokens = rrm_file.readline().split()
+    with open('peers.txt', 'r') as peers_file:
+        for line in peers_file:
+            peer = line.split()
+            peers.append(peer)
+    if (len(peers) > 3 and int(aptokens[1]) == 27):
+        if aptokens[0] in ip_to_rhost_map.keys():
+            with open('info.txt', 'r') as info_file:
+                for line in info_file:
+                    tokens = line.split()
+                    for host in ip_to_rhost_map.values():
+                        if tokens[0] == host.host_name:
+                            host.run_cmd('iwconfig {} txpower 63mW'.format(tokens[1]))
+    elif len(peers) <= 3 and aptokens[1] != 27 :
+        if aptokens[0] in ip_to_rhost_map.keys():
+            with open('info.txt', 'r') as info_file:
+                for line in info_file:
+                    tokens = line.split()
+                    for host in ip_to_rhost_map.values():
+                        if tokens[0] == host.host_name:
+                            host.run_cmd('iwconfig {} txpower 501mW'.format(tokens[1]))
+

@@ -26,7 +26,7 @@ class ClientThread(threading.Thread):
             elif request_type == '<< put config info >>\n':
                 self._handle_put_info(message)
             elif request_type == '<< put iwlist peers results >>\n':
-                self._handle_put_peers(message)
+                self._handel_put_peers(message)
             else:
                 print('Bad Request from ' + self.client_ip)
 
@@ -61,6 +61,7 @@ class ClientThread(threading.Thread):
         dbmanager.write_scan_results(self.client_ip, data, time_stamp)
 
     def _handle_put_info(self, message):
+        print(message)
         state = 0
         for line in message:
             if state == 0 and ('ESSID:' and 'IEEE 802.' in line):
@@ -95,18 +96,30 @@ class ClientThread(threading.Thread):
         dbmanager.write_stats(self.client_ip, stats, time_stamp)
 
     def _handel_put_peers(self, message):
-        print(message)
-        time_stamp = message.readline().strip()
         peers = []
         for line in message:
-            print(line)
             if line == '<< end >>\n':
                 break
-            tokens = line.strip().split('=')
-            peers.append((tokens[0], tokens[1]))
+            if 'Quality' in line:
+                tokens = line.split()
+                mac = tokens[0]
+                quality = tokens[2].split('=')
+                quality = quality[1]
+                signal = tokens[4].split('=')
+                signal = signal[1]
+                noise = tokens[7].split('=')
+                noise = noise[1]
+                peer = (mac, quality, signal, noise)
+                peers.append(peer)
+            if 'Tx-Power' in line:
+                power = line.split('Tx-Power=')[1].split()[0]
+            if 'Frequency' in line:
+                freq = line.split('Frequency:')[1].split()[0]
+                channel = _get_channel(float(freq))
         else:
             raise Exception('unterminated message!!!')
-        dbmanager.write_stats(self.client_ip, peers, time_stamp)
+        dbmanager.pre_rrm(self.client_ip, power, channel, peers)
+
 
 def _get_channel(freq):
     assert freq < 3
