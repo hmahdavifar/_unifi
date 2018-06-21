@@ -108,7 +108,7 @@ if '-rrm' in sys.argv:
         for line in peers_file:
             peer = line.split()
             peers.append(peer)
-    if (len(peers) > 3 and int(aptokens[1]) == 27):
+    if len(peers) > 3 and int(aptokens[1]) == 27:
         if aptokens[0] in ip_to_rhost_map.keys():
             with open('info.txt', 'r') as info_file:
                 for line in info_file:
@@ -116,7 +116,7 @@ if '-rrm' in sys.argv:
                     for host in ip_to_rhost_map.values():
                         if tokens[0] == host.host_name:
                             host.run_cmd('iwconfig {} txpower 63mW'.format(tokens[1]))
-    elif len(peers) <= 3 and aptokens[1] != 27 :
+    elif len(peers) <= 3 and int(aptokens[1]) != 27:
         if aptokens[0] in ip_to_rhost_map.keys():
             with open('info.txt', 'r') as info_file:
                 for line in info_file:
@@ -124,4 +124,5 @@ if '-rrm' in sys.argv:
                     for host in ip_to_rhost_map.values():
                         if tokens[0] == host.host_name:
                             host.run_cmd('iwconfig {} txpower 501mW'.format(tokens[1]))
+
 

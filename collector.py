@@ -97,6 +97,7 @@ class ClientThread(threading.Thread):
 
     def _handel_put_peers(self, message):
         peers = []
+        dbmanager.load_info2ip_map()
         for line in message:
             if line == '<< end >>\n':
                 break
@@ -109,7 +110,8 @@ class ClientThread(threading.Thread):
                 signal = signal[1]
                 noise = tokens[7].split('=')
                 noise = noise[1]
-                peer = (mac, quality, signal, noise)
+                peerip = dbmanager.mac2ip(mac)
+                peer = (mac, quality, signal, noise, peerip)
                 peers.append(peer)
             if 'Tx-Power' in line:
                 power = line.split('Tx-Power=')[1].split()[0]

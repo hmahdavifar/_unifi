@@ -45,9 +45,18 @@ def get_measure(ip):
 def load_info2ip_map():
     with open(INFO_FILE_PATH, 'r') as file:
         for line in file:
-            print(line)
             tokens = line.split()
             info2ip_map[ApInfo(tokens[3], tokens[4], tokens[5])] = tokens[0]
+
+
+def mac2ip(mac):
+    with open(INFO_FILE_PATH, 'r') as file:
+        for line in file:
+            tokens = line.split()
+            if tokens[3] == mac:
+                return tokens[1]
+            else:
+                print('ip for '+mac+' not found')
 
 
 def write_info(owner_ip, ng_interface, wifi_interface, ap_info):
@@ -59,7 +68,7 @@ def write_peers(peers):
     open(PEERS_FILE_PATH, 'w').close()
     for peer in peers:
         with open(PEERS_FILE_PATH, 'a') as file:
-            file.write(str.format('{}\t{}\t{}\t{}\n', peer[0], peer[1], peer[2], peer[3]))
+            file.write(str.format('{}\t{}\t{}\t{}\t{}\n', peer[0], peer[1], peer[2], peer[3], peer[4]))
 
 
 def pre_rrm(ip, power, channel, peers):
