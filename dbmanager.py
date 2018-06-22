@@ -3,6 +3,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import urllib.response
+import controller
 
 # todo: check dbmanager thread safety
 DB_NAME = 'test'
@@ -11,8 +12,6 @@ CHANNEL_TAG_KEY = 'channel'
 MAC_TAG_KEY = 'mac'
 ESSID_TAG_KEY = 'essid'
 INFO_FILE_PATH = 'info.txt'
-PEERS_FILE_PATH = 'peers.txt'
-RRM_FILE_PATH = 'rrm.txt'
 
 info2ip_map = {}
 
@@ -64,18 +63,40 @@ def write_info(owner_ip, ng_interface, wifi_interface, ap_info):
         file.write(str.format('{}\t{}\t{}\t{}\n', owner_ip, ng_interface, wifi_interface, ap_info))
 
 
-def write_peers(peers):
-    open(PEERS_FILE_PATH, 'w').close()
+def write_peers(ip, peers):
+    open('{}-peers'.format(ip), 'w+').close()
     for peer in peers:
-        with open(PEERS_FILE_PATH, 'a') as file:
+        with open('{}-peers'.format(ip), 'a') as file:
             file.write(str.format('{}\t{}\t{}\t{}\t{}\n', peer[0], peer[1], peer[2], peer[3], peer[4]))
 
 
 def pre_rrm(ip, power, channel, peers):
-    write_peers(peers)
-    open(RRM_FILE_PATH, 'w').close()
-    with open(RRM_FILE_PATH, 'a') as file:
+    write_peers(ip, peers)
+    open('{}-rrm'.format(ip), 'w+').close()
+    with open('{}-rrm'.format(ip), 'a') as file:
         file.write(str.format('{}\t{}\t{}', ip, power, channel))
+    remote = controller.RemoteHost(ip)
+    with open('info.txt', 'r') as info_file:
+        for line in info_file:
+            tokens = line.split()
+            if tokens[0] == ip:
+                if len(peers) > 6 and power == 27:
+                    remote.run_cmd('iwconfig {} txpower 63mW'.format(tokens[1]))
+                elif len(peers) <= 6  and power != 27:
+                    remote.run_cmd('iwconfig {} txpower 501mW'.format(tokens[1]))
+                else:
+                    print('rrm did run for {}', ip)
+            else:
+                print("rrm can't find host '{}'", ip)
+    if len(peers) > 0:
+        with open('info.txt', 'r') as info_file:
+            for peer in peers:
+                for line in info_file:
+                    tokens = line.split()
+                    if peer[0] == tokens[3]:
+                        remote = controller.remote(tokens[0])
+                        remote.run_cmd('/bin/sh find_peers.sh {} {} {}'.format(controller.COLLECTOR_IP,
+                                                                               controller.COLLECTOR_PORT, tokens[1]))
 
 
 def write_scan_results(owner_ip, data, time_stamp):
@@ -128,10 +149,14 @@ def read_neighbours(ap_info, duration, strength_threshold):
     return [(ApInfo(s['tags']['mac'], s['tags']['essid'], s['tags']['channel']), s['values'][0][1]) for s in series
             if s['values'][0][1] > strength_threshold]
 
-def read_error_rate(ap_info , duration):
-    influx_query1 = str.format('SELECT "tx_erros" FROM "stats" '
-                               'WHERE "time" = now() AND "ap" = {}', get_measure(ap_info))
+
+def read_stat(ap_info , duration):
+    influx_query1 = str.format('SELECT * FROM "stats" '
+                               'WHERE "time" = now() - {} AND "ap" = {}'.format(duration, 'Ap.'+ap_info.split[3]))
     print(influx_query1)
-    influx_query2 = str.format('SELECT "tx_erros" FROM "stats" '
-                               'WHERE "time" = now() - {} AND "ap" = {}', duration, get_measure(ap_info))
+    results1 = _exec_query(influx_query1, DB_NAME)['results1']
+    influx_query2 = str.format('SELECT * FROM "stats" '
+                               'WHERE "time" = now() AND "ap" = {}'.format('Ap.'+ap_info.split[3]))
     print(influx_query2)
+    results2 = _exec_query(influx_query1, DB_NAME)['results2']
+    
